@@ -13,6 +13,7 @@ interface BookPage {
   label: string;
   content: ReactNode;
   fullBleed?: boolean;
+  wide?: boolean;
 }
 
 interface BookLayoutProps {
@@ -91,7 +92,15 @@ export default function BookLayout({ pages }: BookLayoutProps) {
             className="book-page"
             id={`page-${page.id}`}
           >
-            <div className={page.fullBleed ? "book-cover-inner" : "book-page-inner"}>
+            <div
+              className={
+                page.fullBleed
+                  ? "book-cover-inner"
+                  : page.wide
+                    ? "book-page-inner book-page-wide"
+                    : "book-page-inner"
+              }
+            >
               {page.content}
             </div>
             {/* Page texture overlay */}

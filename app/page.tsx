@@ -6,7 +6,7 @@
  * Client component — initializes RunAnywhere SDK in useEffect.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import BookLayout from "@/components/BookLayout";
 import MicButton from "@/components/MicButton";
 import JournalCard from "@/components/JournalCard";
@@ -27,7 +27,7 @@ export default function Home() {
     async function loadEntries() {
       try {
         const stored = await getAllEntries();
-        setEntries(stored);
+        setEntries(stored.sort((a, b) => b.timestamp - a.timestamp));
       } catch (err) {
         console.error("Failed to load entries:", err);
       }
@@ -69,7 +69,12 @@ export default function Home() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
-  const insight = generateWeeklyInsight(entries);
+  const entriesSorted = useMemo(
+    () => [...entries].sort((a, b) => b.timestamp - a.timestamp),
+    [entries]
+  );
+
+  const insight = generateWeeklyInsight(entriesSorted);
 
   // Book pages
   const pages = [
@@ -129,10 +134,10 @@ export default function Home() {
             </div>
           )}
 
-          {entries.length > 0 && (
+          {entriesSorted.length > 0 && (
             <div className="recent-entry">
               <h3 className="recent-title">Latest Entry</h3>
-              <JournalCard entry={entries[0]} />
+              <JournalCard entry={entriesSorted[0]} />
             </div>
           )}
         </div>
@@ -150,7 +155,7 @@ export default function Home() {
               : `${entries.length} ${entries.length === 1 ? "entry" : "entries"} recorded`}
           </p>
           <div className="entries-list">
-            {entries.map((entry) => (
+            {entriesSorted.map((entry) => (
               <JournalCard
                 key={entry.id}
                 entry={entry}
@@ -164,18 +169,19 @@ export default function Home() {
     {
       id: "insights",
       label: "Insights",
+      wide: true,
       content: (
         <div className="page-insights">
           <h2 className="page-title">Insights & Graphs</h2>
           <p className="page-description">{insight.period}</p>
 
-          {entries.length > 0 && (
+          {entriesSorted.length > 0 && (
             <div className="insight-summary">
               <p className="insight-text">{insight.insightText}</p>
             </div>
           )}
 
-          <Graph entries={entries} />
+          <Graph entries={entriesSorted} />
         </div>
       ),
     },

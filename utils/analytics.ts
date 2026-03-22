@@ -77,7 +77,7 @@ export function generateWeeklyInsight(entries: JournalEntry[]): WeeklyInsight {
     entries.reduce((sum, e) => sum + e.sentimentScore, 0) / entries.length;
 
   // Mood trend (daily)
-  const moodTrend = entries
+  const moodTrend = [...entries]
     .sort((a, b) => a.timestamp - b.timestamp)
     .map((entry) => ({
       date: new Date(entry.timestamp).toLocaleDateString("en-US", {
@@ -174,7 +174,7 @@ export function getMoodChartData(entries: JournalEntry[]): {
   mood: number;
   emotion: string;
 }[] {
-  return entries
+  return [...entries]
     .sort((a, b) => a.timestamp - b.timestamp)
     .map((entry) => ({
       date: new Date(entry.timestamp).toLocaleDateString("en-US", {
@@ -217,4 +217,58 @@ export function getEmotionChartData(
       fill: emotionColors[emotion] || "#6B7280",
     }))
     .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Get radar chart data for emotion distribution.
+ */
+export function getEmotionRadarData(
+  entries: JournalEntry[]
+): { emotion: string; value: number }[] {
+  const counts: Record<string, number> = {};
+  for (const entry of entries) {
+    counts[entry.emotion] = (counts[entry.emotion] || 0) + 1;
+  }
+
+  const total = Object.values(counts).reduce((sum, v) => sum + v, 0) || 1;
+
+  return Object.entries(counts)
+    .map(([emotion, count]) => ({
+      emotion: emotion.charAt(0).toUpperCase() + emotion.slice(1),
+      value: Math.round((count / total) * 100),
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+/**
+ * Get heatmap data for recent journal activity.
+ */
+export function getActivityHeatmapData(
+  entries: JournalEntry[],
+  days = 28
+): { date: string; label: string; count: number; level: number }[] {
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(today.getDate() - (days - 1));
+
+  const countsByDay: Record<string, number> = {};
+  for (const entry of entries) {
+    const key = new Date(entry.timestamp).toISOString().slice(0, 10);
+    countsByDay[key] = (countsByDay[key] || 0) + 1;
+  }
+
+  const dates: { date: string; label: string; count: number }[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    dates.push({ date: key, label, count: countsByDay[key] || 0 });
+  }
+
+  const maxCount = Math.max(1, ...dates.map((d) => d.count));
+  return dates.map((d) => ({
+    ...d,
+    level: Math.min(4, Math.floor((d.count / maxCount) * 4)),
+  }));
 }

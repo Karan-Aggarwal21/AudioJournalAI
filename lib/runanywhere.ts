@@ -192,26 +192,81 @@ export async function initSTTModel(): Promise<void> {
   try {
     state.stt = "loading";
     const { STT, STTModelType, SherpaONNXBridge } = await import("@runanywhere/web-onnx");
-    
-    // Download files into Sherpa-ONNX WASM virtual filesystem
     const bridge = SherpaONNXBridge.shared;
     await bridge.ensureLoaded();
-    await bridge.downloadAndWrite("/models/whisper-base-encoder.onnx", "/models/whisper-base-encoder.onnx");
-    await bridge.downloadAndWrite("/models/whisper-base-decoder.onnx", "/models/whisper-base-decoder.onnx");
-    await bridge.downloadAndWrite("/models/whisper-base-tokens.txt", "/models/whisper-base-tokens.txt");
 
-    await STT.loadModel({
-      modelId: "whisper-base",
-      type: STTModelType.Whisper,
-      modelFiles: {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const isFileAvailable = async (path: string): Promise<boolean> => {
+      if (!origin) return true;
+      try {
+        const res = await fetch(`${origin}${path}`, { method: "HEAD" });
+        return res.ok;
+      } catch (err) {
+        console.warn("[RunAnywhere:STT] File check failed:", path, err);
+        return false;
+      }
+    };
+
+    const modelCandidates = [
+      {
+        id: "whisper-small",
+        encoder: "/models/whisper-small-encoder.onnx",
+        decoder: "/models/whisper-small-decoder.onnx",
+        tokens: "/models/whisper-small-tokens.txt",
+      },
+      {
+        id: "whisper-base",
         encoder: "/models/whisper-base-encoder.onnx",
         decoder: "/models/whisper-base-decoder.onnx",
         tokens: "/models/whisper-base-tokens.txt",
       },
-      sampleRate: 16000,
-    });
+      {
+        id: "whisper-tiny",
+        encoder: "/models/whisper-tiny-encoder.onnx",
+        decoder: "/models/whisper-tiny-decoder.onnx",
+        tokens: "/models/whisper-tiny-tokens.txt",
+      },
+    ];
 
-    state.stt = "ready";
+    let lastError: Error | null = null;
+    for (const model of modelCandidates) {
+      try {
+        const [hasEncoder, hasDecoder, hasTokens] = await Promise.all([
+          isFileAvailable(model.encoder),
+          isFileAvailable(model.decoder),
+          isFileAvailable(model.tokens),
+        ]);
+
+        if (!hasEncoder || !hasDecoder || !hasTokens) {
+          console.warn(`[RunAnywhere:STT] Missing files for ${model.id}, skipping.`);
+          continue;
+        }
+
+        await bridge.downloadAndWrite(model.encoder, model.encoder);
+        await bridge.downloadAndWrite(model.decoder, model.decoder);
+        await bridge.downloadAndWrite(model.tokens, model.tokens);
+
+        await STT.loadModel({
+          modelId: model.id,
+          type: STTModelType.Whisper,
+          modelFiles: {
+            encoder: model.encoder,
+            decoder: model.decoder,
+            tokens: model.tokens,
+          },
+          sampleRate: 16000,
+        });
+
+        state.stt = "ready";
+        return;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        console.warn(`[RunAnywhere:STT] Failed to load ${model.id}, trying fallback...`, err);
+      }
+    }
+
+    throw lastError || new Error("STT init failed");
+
   } catch (err) {
     state.stt = "error";
     state.error = err instanceof Error ? err.message : "STT init failed";

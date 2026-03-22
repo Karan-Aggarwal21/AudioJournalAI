@@ -45,13 +45,7 @@ next-env.d.ts
 
 
 #models
-/public/models/
-public/wasm/
-public/wasm/sherpa/
-public/models/
-*.onnx
-*.bin
-*.wasm
+
 
 .cache/
 .tmp/

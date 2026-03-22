@@ -31,6 +31,7 @@ export default function MicButton({ onNewEntry, onUpdateEntry, modelsReady }: Mi
   
   const activeEntryIdRef = useRef<string | null>(null);
   const accumulatedTextRef = useRef<string>("");
+  const isCreatingRef = useRef(false);
 
   if (modelsReady && state === "loadingModels") {
     setState("idle");
@@ -44,6 +45,8 @@ export default function MicButton({ onNewEntry, onUpdateEntry, modelsReady }: Mi
       await stopListening();
       activeEntryIdRef.current = null;
       accumulatedTextRef.current = "";
+      isCreatingRef.current = false;
+      setTranscribedText("");
       setState("idle");
       return;
     }
@@ -75,6 +78,8 @@ export default function MicButton({ onNewEntry, onUpdateEntry, modelsReady }: Mi
             });
             onUpdateEntry(entry);
           } else {
+            if (isCreatingRef.current) return;
+            isCreatingRef.current = true;
             const entry = await saveEntry({
               text: accumulatedTextRef.current,
               timestamp: Date.now(),
@@ -87,6 +92,7 @@ export default function MicButton({ onNewEntry, onUpdateEntry, modelsReady }: Mi
             });
             activeEntryIdRef.current = entry.id;
             onNewEntry(entry);
+            isCreatingRef.current = false;
           }
         },
         onStateChange: (vadState) => {
