@@ -10,6 +10,8 @@
 !.yarn/releases
 !.yarn/versions
 
+.agents
+.ai-code
 # testing
 /coverage
 
@@ -39,3 +41,29 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+
+#models
+/public/models/
+public/wasm/
+public/wasm/sherpa/
+public/models/
+*.onnx
+*.bin
+*.wasm
+
+.cache/
+.tmp/
+dist/
+
+logs/
+*.log
+
+.vscode/
+.idea/
+
+whisper-base.tar.bz2
+sherpa-onnx-whisper-base.en
+
+docs/

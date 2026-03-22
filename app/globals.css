@@ -1,26 +1,901 @@
+/* =========================================================
+   MindMirror AI — Leather-Bound Journal Theme
+   ========================================================= */
+
 @import "tailwindcss";
 
+/* ---- CSS Custom Properties ---- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --leather-dark: #3C1F0A;
+  --leather-mid: #5C3A1E;
+  --leather-light: #8B5A2B;
+  --leather-accent: #D4A574;
+  --leather-gold: #C9A84C;
+
+  --paper-cream: #F5E6D3;
+  --paper-warm: #ECD9C6;
+  --paper-aged: #E0CDB8;
+  --paper-edge: #D4BFA7;
+
+  --ink-dark: #2C1810;
+  --ink-mid: #4A3228;
+  --ink-light: #6B5548;
+  --ink-faded: #8B7B6B;
+
+  --font-serif: var(--font-lora), "Georgia", serif;
+  --font-handwriting: var(--font-caveat), "Segoe Script", cursive;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ---- Base Reset ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #1a0e05;
+  font-family: var(--font-serif);
+  color: var(--ink-dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* =========================================================
+   Book Wrapper
+   ========================================================= */
+.book-wrapper {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(145deg, #2a1506 0%, #1a0e05 50%, #0f0803 100%);
+}
+
+/* Book spine */
+.book-spine {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  background: linear-gradient(90deg,
+    #1a0e05 0%,
+    var(--leather-dark) 30%,
+    var(--leather-mid) 50%,
+    var(--leather-dark) 70%,
+    #1a0e05 100%
+  );
+  z-index: 20;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.6);
+}
+
+.book-spine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg,
+    var(--leather-gold) 0%,
+    transparent 20%,
+    transparent 80%,
+    var(--leather-gold) 100%
+  );
+  opacity: 0.4;
+}
+
+/* ---- Navigation Tabs ---- */
+.book-nav {
+  display: flex;
+  gap: 2px;
+  padding: 0 24px 0 32px;
+  background: var(--leather-dark);
+  border-bottom: 2px solid var(--leather-light);
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.book-tab {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--leather-accent);
+  font-family: var(--font-serif);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 0.6;
+}
+
+.book-tab:hover {
+  opacity: 0.9;
+  background: rgba(212, 165, 116, 0.08);
+}
+
+.book-tab-active {
+  opacity: 1;
+  border-bottom-color: var(--leather-gold);
+  color: var(--leather-gold);
+  background: rgba(201, 168, 76, 0.06);
+}
+
+/* ---- Scroll Container ---- */
+.book-scroll {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  flex: 1;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.book-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---- Individual Pages ---- */
+.book-page {
+  min-width: 100vw;
+  height: 100%;
+  scroll-snap-align: start;
+  position: relative;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--leather-accent) transparent;
+}
+
+.book-page::-webkit-scrollbar {
+  width: 6px;
+}
+
+.book-page::-webkit-scrollbar-thumb {
+  background: var(--leather-accent);
+  border-radius: 3px;
+}
+
+.book-page-inner {
+  width: 100%;
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 48px 48px 100px;
+  background: var(--paper-cream);
+  position: relative;
+  min-height: 100%;
+
+  /* Paper texture pattern */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 27px,
+      rgba(139, 90, 43, 0.06) 27px,
+      rgba(139, 90, 43, 0.06) 28px
+    );
+  background-size: 100% 28px;
+
+  /* Subtle page shadow */
+  box-shadow:
+    -8px 0 20px rgba(0, 0, 0, 0.15),
+    8px 0 20px rgba(0, 0, 0, 0.15),
+    inset 3px 0 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Paper texture overlay */
+.book-page-texture {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* ---- Page Edge Effect ---- */
+.book-page-inner::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(90deg,
+    rgba(139, 90, 43, 0.12) 0%,
+    rgba(139, 90, 43, 0.04) 40%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.book-page-inner::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  background: linear-gradient(270deg,
+    rgba(0, 0, 0, 0.08) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* ---- Cover Inner ---- */
+.book-cover-inner {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, var(--leather-dark) 0%, var(--leather-mid) 50%, var(--leather-dark) 100%);
+  position: relative;
+}
+
+/* ---- Page Navigation Arrows ---- */
+.book-arrows {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px;
+  background: var(--leather-dark);
+  border-top: 1px solid rgba(139, 90, 43, 0.3);
+  flex-shrink: 0;
+}
+
+.book-arrow {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--leather-light);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--leather-accent);
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.book-arrow:hover:not(:disabled) {
+  background: rgba(212, 165, 116, 0.15);
+  border-color: var(--leather-gold);
+  color: var(--leather-gold);
+}
+
+.book-arrow:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.book-page-indicator {
+  font-family: var(--font-serif);
+  font-size: 0.8rem;
+  color: var(--ink-faded);
+  letter-spacing: 0.1em;
+}
+
+/* =========================================================
+   Cover Page
+   ========================================================= */
+.page-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  height: 100vh;
+  text-align: center;
+  background: transparent;
+  padding: 48px;
+
+  /* Leather texture */
+  background-image:
+    linear-gradient(145deg, var(--leather-dark) 0%, var(--leather-mid) 50%, var(--leather-dark) 100%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
+}
+
+.cover-ornament {
+  color: var(--leather-gold);
+  font-size: 1rem;
+  letter-spacing: 0.5em;
+  opacity: 0.6;
+}
+
+.top-ornament {
+  margin-bottom: auto;
+  padding-top: 24px;
+}
+
+.bottom-ornament {
+  margin-top: auto;
+  padding-bottom: 24px;
+}
+
+.cover-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.cover-title {
+  font-family: var(--font-serif);
+  font-size: clamp(2.2rem, 6vw, 3.5rem);
+  font-weight: 700;
+  color: var(--leather-gold);
+  letter-spacing: 0.08em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  line-height: 1.1;
+}
+
+.cover-divider {
+  width: 120px;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--leather-gold) 20%,
+    var(--leather-gold) 80%,
+    transparent 100%
+  );
+  opacity: 0.5;
+  margin: 8px 0;
+}
+
+.cover-subtitle {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--leather-accent);
+  letter-spacing: 0.04em;
+}
+
+.cover-tagline {
+  font-family: var(--font-serif);
+  font-size: 0.8rem;
+  color: var(--leather-accent);
+  opacity: 0.6;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+.cover-date {
+  font-family: var(--font-serif);
+  font-size: 0.85rem;
+  color: var(--leather-accent);
+  opacity: 0.5;
+}
+
+.cover-seal {
+  position: absolute;
+  bottom: 32px;
+  font-family: var(--font-serif);
+  font-size: 0.7rem;
+  color: var(--leather-accent);
+  opacity: 0.4;
+  letter-spacing: 0.1em;
+}
+
+/* =========================================================
+   Page Styles (Record, Entries, Insights)
+   ========================================================= */
+.page-title {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--ink-dark);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.page-description {
+  font-family: var(--font-serif);
+  font-size: 0.9rem;
+  color: var(--ink-light);
+  margin-bottom: 32px;
+  font-style: italic;
+}
+
+/* =========================================================
+   Mic Button
+   ========================================================= */
+.mic-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin: 32px 0;
+}
+
+.mic-button {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px solid var(--leather-light);
+  background: linear-gradient(145deg, var(--leather-mid), var(--leather-dark));
+  color: var(--leather-accent);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 3px rgba(212, 165, 116, 0.2);
+}
+
+.mic-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  border-color: var(--leather-gold);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(201, 168, 76, 0.15);
+}
+
+.mic-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mic-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.mic-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid var(--leather-gold);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.mic-ring-active {
+  opacity: 1;
+  animation: mic-pulse 1.5s ease-in-out infinite;
+}
+
+.mic-listening {
+  border-color: var(--leather-gold);
+  background: linear-gradient(145deg, var(--leather-light), var(--leather-mid));
+}
+
+.mic-label {
+  font-family: var(--font-serif);
+  font-size: 0.85rem;
+  color: var(--ink-light);
+  font-style: italic;
+}
+
+.mic-transcription {
+  max-width: 400px;
+  text-align: center;
+  font-family: var(--font-handwriting);
+  font-size: 1rem;
+  color: var(--ink-mid);
+  padding: 12px;
+  background: rgba(139, 90, 43, 0.05);
+  border-radius: 8px;
+}
+
+@keyframes mic-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.2;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* =========================================================
+   Journal Card
+   ========================================================= */
+.journal-card {
+  position: relative;
+  background: var(--paper-warm);
+  border: 1px solid var(--paper-edge);
+  border-radius: 4px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 0 30px rgba(139, 90, 43, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.journal-card:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 0 30px rgba(139, 90, 43, 0.03);
+}
+
+.journal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.journal-card-date {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.journal-card-day {
+  font-family: var(--font-serif);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-dark);
+}
+
+.journal-card-time {
+  font-family: var(--font-serif);
+  font-size: 0.72rem;
+  color: var(--ink-faded);
+}
+
+.journal-card-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.journal-card-sentiment {
+  font-family: var(--font-serif);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.sentiment-positive {
+  background: rgba(34, 139, 34, 0.12);
+  color: #2e7d32;
+}
+
+.sentiment-negative {
+  background: rgba(220, 38, 38, 0.1);
+  color: #c62828;
+}
+
+.sentiment-neutral {
+  background: rgba(139, 90, 43, 0.1);
+  color: var(--ink-light);
+}
+
+.journal-card-emotion {
+  font-size: 0.78rem;
+  color: var(--ink-mid);
+}
+
+.journal-card-rule {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg,
+    var(--leather-light) 0%,
+    transparent 100%
+  );
+  opacity: 0.2;
+  margin-bottom: 12px;
+}
+
+.journal-card-text {
+  font-family: var(--font-handwriting);
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: var(--ink-dark);
+  margin-bottom: 12px;
+}
+
+.journal-card-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.journal-card-keyword {
+  font-family: var(--font-serif);
+  font-size: 0.68rem;
+  color: var(--ink-light);
+  background: rgba(139, 90, 43, 0.08);
+  padding: 2px 8px;
+  border-radius: 8px;
+  letter-spacing: 0.03em;
+}
+
+.journal-card-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.journal-card-topic {
+  font-family: var(--font-serif);
+  font-size: 0.72rem;
+  color: var(--ink-mid);
+}
+
+.journal-card-delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--ink-faded);
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.journal-card:hover .journal-card-delete {
+  opacity: 0.6;
+}
+
+.journal-card-delete:hover {
+  opacity: 1;
+  color: #c62828;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+/* =========================================================
+   Entries List
+   ========================================================= */
+.entries-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* =========================================================
+   Graphs & Charts
+   ========================================================= */
+.graph-container {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.graph-section {
+  background: rgba(139, 90, 43, 0.03);
+  border: 1px solid rgba(139, 90, 43, 0.1);
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.graph-title {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink-dark);
+  margin-bottom: 4px;
+}
+
+.graph-subtitle {
+  font-family: var(--font-serif);
+  font-size: 0.8rem;
+  color: var(--ink-faded);
+  font-style: italic;
+  margin-bottom: 20px;
+}
+
+.graph-chart {
+  width: 100%;
+}
+
+.graph-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 64px 32px;
+  color: var(--ink-light);
+  font-family: var(--font-serif);
+}
+
+.graph-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.4;
+}
+
+.graph-empty-hint {
+  font-size: 0.85rem;
+  color: var(--ink-faded);
+  font-style: italic;
+  margin-top: 8px;
+}
+
+/* Chart Tooltip */
+.chart-tooltip {
+  background: var(--paper-cream);
+  border: 1px solid var(--paper-edge);
+  border-radius: 6px;
+  padding: 10px 14px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  font-family: var(--font-serif);
+  font-size: 0.8rem;
+}
+
+.chart-tooltip-date {
+  font-weight: 600;
+  color: var(--ink-dark);
+  margin-bottom: 4px;
+}
+
+.chart-tooltip-mood,
+.chart-tooltip-emotion {
+  color: var(--ink-mid);
+}
+
+/* =========================================================
+   Insight Summary
+   ========================================================= */
+.insight-summary {
+  background: rgba(201, 168, 76, 0.08);
+  border-left: 3px solid var(--leather-gold);
+  padding: 16px 20px;
+  margin-bottom: 32px;
+  border-radius: 0 8px 8px 0;
+}
+
+.insight-text {
+  font-family: var(--font-serif);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--ink-mid);
+}
+
+/* =========================================================
+   Init States
+   ========================================================= */
+.init-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  font-family: var(--font-serif);
+  color: var(--ink-light);
+  font-size: 0.9rem;
+}
+
+.init-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--paper-edge);
+  border-top-color: var(--leather-light);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+.init-loading-hint {
+  font-size: 0.78rem;
+  color: var(--ink-faded);
+  font-style: italic;
+}
+
+.init-error {
+  background: rgba(220, 38, 38, 0.06);
+  border: 1px solid rgba(220, 38, 38, 0.15);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  font-family: var(--font-serif);
+  font-size: 0.85rem;
+  color: #b71c1c;
+}
+
+.init-error-detail {
+  font-size: 0.78rem;
+  margin-top: 4px;
+  color: #c62828;
+  word-break: break-word;
+}
+
+.init-error-hint {
+  font-size: 0.75rem;
+  color: var(--ink-faded);
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* Recent Entry on Record Page */
+.recent-entry {
+  margin-top: 32px;
+}
+
+.recent-title {
+  font-family: var(--font-serif);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-light);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* =========================================================
+   Animations
+   ========================================================= */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1.2s linear infinite;
+}
+
+.pulse {
+  animation: icon-pulse 1s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* =========================================================
+   Responsive
+   ========================================================= */
+@media (max-width: 640px) {
+  .book-page-inner {
+    padding: 32px 24px 80px;
+  }
+
+  .book-tab {
+    padding: 10px 14px;
+    font-size: 0.72rem;
+  }
+
+  .book-spine {
+    width: 10px;
+  }
+
+  .page-cover {
+    margin: -32px -24px;
+    padding: 32px 24px;
+  }
+
+  .cover-title {
+    font-size: 2rem;
+  }
+
+  .mic-button {
+    width: 68px;
+    height: 68px;
+  }
+
+  .journal-card {
+    padding: 16px;
+  }
+
+  .journal-card-text {
+    font-size: 1rem;
+  }
 }
