@@ -34,19 +34,12 @@ interface GraphProps {
 function MoodTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; payload: { emotion: string } }>; label?: string }) {
   if (active && payload && payload.length) {
     return (
-      <div className="chart-tooltip" style={{
-        background: 'var(--leather-dark)',
-        color: 'var(--paper-cream)',
-        padding: '12px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-        border: '1px solid var(--leather-accent)'
-      }}>
-        <p className="chart-tooltip-date" style={{ margin: '0 0 4px', fontSize: '12px', opacity: 0.8 }}>{label}</p>
-        <p className="chart-tooltip-mood" style={{ margin: '0 0 4px', fontWeight: 'bold' }}>
-          Mood Score: <span style={{ color: 'var(--leather-accent)' }}>{payload[0].value}%</span>
+      <div className="glass-shard-card tooltip-shard">
+        <p className="glass-shard-day" style={{ margin: '0 0 4px', fontSize: '12px' }}>{label}</p>
+        <p className="swirling-light-text" style={{ margin: '0 0 4px', fontWeight: 'bold' }}>
+          Mood Score: <span style={{ color: '#ffd299' }}>{payload[0].value}%</span>
         </p>
-        <p className="chart-tooltip-emotion" style={{ margin: 0, textTransform: 'capitalize' }}>
+        <p className="glass-shard-time" style={{ margin: 0, textTransform: 'capitalize' }}>
           Primary feeling: {payload[0].payload.emotion}
         </p>
       </div>
@@ -59,16 +52,9 @@ function MoodTooltip({ active, payload, label }: { active?: boolean; payload?: A
 function EmotionTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: { emotion: string; count: number } }> }) {
   if (active && payload && payload.length) {
     return (
-      <div className="chart-tooltip" style={{
-        background: 'var(--leather-dark)',
-        color: 'var(--paper-cream)',
-        padding: '12px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-        border: '1px solid var(--leather-accent)'
-      }}>
-        <p className="chart-tooltip-emotion" style={{ margin: 0 }}>
-          {payload[0].payload.emotion}: <strong style={{ color: 'var(--leather-accent)' }}>{payload[0].payload.count}</strong> entries
+      <div className="glass-shard-card tooltip-shard">
+        <p className="swirling-light-text" style={{ margin: 0 }}>
+          {payload[0].payload.emotion}: <strong style={{ color: '#ffd299' }}>{payload[0].payload.count}</strong> entries
         </p>
       </div>
     );
@@ -80,22 +66,35 @@ function EmotionTooltip({ active, payload }: { active?: boolean; payload?: Array
 function RadarTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: { emotion: string; value: number } }> }) {
   if (active && payload && payload.length) {
     return (
-      <div className="chart-tooltip" style={{
-        background: 'var(--leather-dark)',
-        color: 'var(--paper-cream)',
-        padding: '12px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-        border: '1px solid var(--leather-accent)'
-      }}>
-        <p style={{ margin: 0 }}>
-          {payload[0].payload.emotion}: <strong style={{ color: 'var(--leather-accent)' }}>{payload[0].payload.value}%</strong>
+      <div className="glass-shard-card tooltip-shard">
+        <p className="swirling-light-text" style={{ margin: 0 }}>
+          {payload[0].payload.emotion}: <strong style={{ color: '#ffd299' }}>{payload[0].payload.value}%</strong>
         </p>
       </div>
     );
   }
   return null;
 }
+
+// Custom Crystal Bar Shape
+const CrystalBar = (props: any) => {
+  const { fill, x, y, width, height } = props;
+  
+  // Custom SVG path for a 3D geometric crystal pillar
+  return (
+    <g>
+      {/* Back/center facet */}
+      <polygon points={`${x},${y+height} ${x+width},${y+height} ${x+width},${y+4} ${x+width/2},${y} ${x},${y+4}`} fill={fill} fillOpacity={0.6} />
+      {/* Front left facet highlight */}
+      <polygon points={`${x},${y+height} ${x+width/2},${y+height} ${x+width/2},${y+6} ${x},${y+4}`} fill="rgba(255,255,255,0.3)" />
+      {/* Front right facet shadow */}
+      <polygon points={`${x+width/2},${y+height} ${x+width},${y+height} ${x+width},${y+4} ${x+width/2},${y+6}`} fill="rgba(0,0,0,0.3)" />
+      {/* Top facet */}
+      <polygon points={`${x},${y+4} ${x+width/2},${y+6} ${x+width},${y+4} ${x+width/2},${y}`} fill="rgba(255,255,255,0.6)" filter="url(#glowPath)" />
+    </g>
+  );
+};
+
 
 export default function Graph({ entries }: GraphProps) {
   const moodData = getMoodChartData(entries);
@@ -105,61 +104,75 @@ export default function Graph({ entries }: GraphProps) {
 
   if (entries.length === 0) {
     return (
-      <div className="graph-empty">
-        <div className="graph-empty-icon">📊</div>
-        <p>Your mood charts will appear here once you start journaling.</p>
-        <p className="graph-empty-hint">Record your first entry to begin tracking!</p>
+      <div className="glass-shard-card empty-insights">
+        <div className="sprout-hologram" style={{ margin: '0 auto 16px' }}>📊</div>
+        <p className="swirling-light-text text-center">Your floating data constellations will form here.</p>
+        <p className="glass-shard-time text-center">Record your first entry to ignite the visualizer.</p>
       </div>
     );
   }
 
   return (
-    <div className="graph-container graph-bento">
+    <div className="graphs-shard-container">
+      <svg style={{ width: 0, height: 0, position: 'absolute' }} aria-hidden="true" focusable="false">
+        <defs>
+          <filter id="glowPath" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+      </svg>
+
       {/* Mood Over Time */}
-      <div className="graph-section graph-card">
-        <h3 className="graph-title">Mood Over Time</h3>
-        <p className="graph-subtitle">
+      <div className="glass-shard-card graph-section">
+        <h3 className="solidified-light-title" style={{ fontSize: '1.6rem' }}>Mood Over Time</h3>
+        <p className="glowing-numbers-text" style={{ fontSize: '0.9rem', marginBottom: '32px' }}>
           How your overall sentiment has changed
         </p>
-        <div className="graph-chart">
-          <ResponsiveContainer width="100%" height={220}>
+        <div className="wireframe-graph-container">
+          <ResponsiveContainer width="100%" height={260}>
             <AreaChart data={moodData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
               <defs>
-                <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8B5A2B" stopOpacity={0.4}/>
-                  <stop offset="95%" stopColor="#8B5A2B" stopOpacity={0}/>
+                <linearGradient id="colorMoodWireframe" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ffdfa3" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#f4a460" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid
-                strokeDasharray="4 4"
-                stroke="rgba(139, 90, 43, 0.2)"
-                vertical={false}
+                strokeDasharray="2 6"
+                stroke="rgba(100, 200, 255, 0.15)"
+                vertical={true}
+                horizontal={true}
               />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 12, fill: "#8B5A2B", fontWeight: 500 }}
+                tick={{ fontSize: 12, fill: "#c9b095", fontWeight: 500 }}
                 tickLine={false}
-                tickMargin={12}
-                axisLine={{ stroke: "rgba(139, 90, 43, 0.4)", strokeWidth: 2 }}
+                tickMargin={16}
+                axisLine={{ stroke: "rgba(255, 200, 100, 0.2)", strokeWidth: 1 }}
               />
               <YAxis
                 domain={[0, 100]}
-                tick={{ fontSize: 12, fill: "#8B5A2B", fontWeight: 500 }}
+                tick={{ fontSize: 12, fill: "#c9b095", fontWeight: 500 }}
                 tickLine={false}
-                tickMargin={12}
+                tickMargin={16}
                 axisLine={false}
                 tickFormatter={(v: number) => `${v}%`}
               />
-              <Tooltip content={<MoodTooltip />} cursor={{ stroke: 'rgba(139, 90, 43, 0.4)', strokeWidth: 2, strokeDasharray: '4 4' }} />
-              <ReferenceLine y={50} stroke="rgba(139, 90, 43, 0.3)" strokeDasharray="3 3" />
+              <Tooltip content={<MoodTooltip />} cursor={{ stroke: 'rgba(255, 200, 100, 0.4)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <ReferenceLine y={50} stroke="rgba(255, 255, 255, 0.1)" strokeDasharray="3 3" />
               <Area
                 type="monotone"
                 dataKey="mood"
-                stroke="#8B5A2B"
+                stroke="#ffd299"
                 strokeWidth={3}
                 fillOpacity={1}
-                fill="url(#colorMood)"
-                activeDot={{ fill: "#F5E6D3", stroke: "#8B5A2B", strokeWidth: 3, r: 6 }}
+                fill="url(#colorMoodWireframe)"
+                style={{ filter: "drop-shadow(0 0 8px rgba(255, 200, 100, 0.8))" }}
+                activeDot={{ fill: "#ffffff", stroke: "#ffd299", strokeWidth: 2, r: 6, style: { filter: 'drop-shadow(0 0 10px #ffffff)' } }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -167,42 +180,42 @@ export default function Graph({ entries }: GraphProps) {
       </div>
 
       {/* Emotion Frequency */}
-      <div className="graph-section graph-card">
-        <h3 className="graph-title">Emotion Frequency</h3>
-        <p className="graph-subtitle">
+      <div className="glass-shard-card graph-section">
+        <h3 className="solidified-light-title" style={{ fontSize: '1.6rem' }}>Emotion Frequency</h3>
+        <p className="glowing-numbers-text" style={{ fontSize: '0.9rem', marginBottom: '32px' }}>
           Your most commonly experienced feelings
         </p>
-        <div className="graph-chart">
-          <ResponsiveContainer width="100%" height={220}>
+        <div className="crystal-graph-container">
+          <ResponsiveContainer width="100%" height={260}>
             <BarChart data={emotionData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
               <CartesianGrid
-                strokeDasharray="4 4"
-                stroke="rgba(139, 90, 43, 0.2)"
+                strokeDasharray="2 6"
+                stroke="rgba(100, 200, 255, 0.1)"
                 vertical={false}
               />
               <XAxis
                 dataKey="emotion"
-                tick={{ fontSize: 12, fill: "#8B5A2B", fontWeight: 500 }}
+                tick={{ fontSize: 12, fill: "#c9b095", fontWeight: 500 }}
                 tickLine={false}
-                tickMargin={12}
-                axisLine={{ stroke: "rgba(139, 90, 43, 0.4)", strokeWidth: 2 }}
+                tickMargin={16}
+                axisLine={{ stroke: "rgba(255, 200, 100, 0.2)", strokeWidth: 1 }}
               />
               <YAxis
-                tick={{ fontSize: 12, fill: "#8B5A2B", fontWeight: 500 }}
+                tick={{ fontSize: 12, fill: "#c9b095", fontWeight: 500 }}
                 tickLine={false}
-                tickMargin={12}
+                tickMargin={16}
                 axisLine={false}
                 allowDecimals={false}
               />
-              <Tooltip content={<EmotionTooltip />} cursor={{ fill: 'rgba(139, 90, 43, 0.05)' }} />
+              <Tooltip content={<EmotionTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }} />
               <Bar 
                 dataKey="count" 
-                radius={[6, 6, 0, 0]} 
-                maxBarSize={60}
-                activeBar={{ stroke: '#8B5A2B', strokeWidth: 2 }}
+                shape={<CrystalBar />}
+                maxBarSize={50}
+                style={{ filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.6))" }}
               >
                 {emotionData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} fillOpacity={0.85} />
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
               </Bar>
             </BarChart>
@@ -210,63 +223,69 @@ export default function Graph({ entries }: GraphProps) {
         </div>
       </div>
 
-      {/* Emotion Radar */}
-      <div className="graph-section graph-card">
-        <h3 className="graph-title">Emotion Balance Radar</h3>
-        <p className="graph-subtitle">
-          A quick view of how your emotions are distributed
-        </p>
-        <div className="graph-chart">
-          <ResponsiveContainer width="100%" height={220}>
-            <RadarChart data={emotionRadarData} outerRadius="70%">
-              <PolarGrid stroke="rgba(139, 90, 43, 0.2)" />
-              <PolarAngleAxis
-                dataKey="emotion"
-                tick={{ fontSize: 11, fill: "#8B5A2B", fontWeight: 500 }}
-              />
-              <PolarRadiusAxis
-                angle={30}
-                domain={[0, 100]}
-                tick={{ fontSize: 10, fill: "#8B5A2B" }}
-                tickFormatter={(v: number) => `${v}%`}
-              />
-              <Radar
-                name="Emotions"
-                dataKey="value"
-                stroke="#8B5A2B"
-                fill="#8B5A2B"
-                fillOpacity={0.25}
-                strokeWidth={2}
-              />
-              <Tooltip content={<RadarTooltip />} />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Activity Heatmap */}
-      <div className="graph-section graph-card">
-        <h3 className="graph-title">Journaling Heatmap</h3>
-        <p className="graph-subtitle">
-          Recent activity density over the last 4 weeks
-        </p>
-        <div className="heatmap-grid">
-          {heatmapData.map((day) => (
-            <div
-              key={day.date}
-              className={`heatmap-cell heatmap-level-${day.level}`}
-              title={`${day.label}: ${day.count} ${day.count === 1 ? "entry" : "entries"}`}
-            />
-          ))}
-        </div>
-        <div className="heatmap-legend">
-          <span className="heatmap-legend-label">Less</span>
-          <div className="heatmap-legend-scale">
-            {[0, 1, 2, 3, 4].map((level) => (
-              <span key={level} className={`heatmap-cell heatmap-level-${level}`} />
-            ))}
+      <div className="graphs-row-container">
+        {/* Emotion Radar */}
+        <div className="glass-shard-card graph-section" style={{ flex: 1 }}>
+          <h3 className="solidified-light-title" style={{ fontSize: '1.4rem' }}>Emotion Balance Radar</h3>
+          <p className="glowing-numbers-text" style={{ fontSize: '0.8rem', marginBottom: '24px' }}>
+            A quick view of how your emotions are distributed
+          </p>
+          <div className="radar-graph-container">
+            <ResponsiveContainer width="100%" height={260}>
+              <RadarChart data={emotionRadarData} outerRadius="65%">
+                <PolarGrid stroke="rgba(100, 200, 255, 0.15)" />
+                <PolarAngleAxis
+                  dataKey="emotion"
+                  tick={{ fontSize: 11, fill: "#c9b095", fontWeight: 500 }}
+                />
+                <PolarRadiusAxis
+                  angle={30}
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: "rgba(255,255,255,0.3)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Radar
+                  name="Emotions"
+                  dataKey="value"
+                  stroke="#1E90FF"
+                  fill="#1E90FF"
+                  fillOpacity={0.25}
+                  strokeWidth={2}
+                  style={{ filter: 'drop-shadow(0 0 10px rgba(30, 144, 255, 0.6))' }}
+                />
+                <Tooltip content={<RadarTooltip />} />
+              </RadarChart>
+            </ResponsiveContainer>
           </div>
-          <span className="heatmap-legend-label">More</span>
+        </div>
+
+        {/* Activity Heatmap */}
+        <div className="glass-shard-card graph-section" style={{ flex: 1 }}>
+          <h3 className="solidified-light-title" style={{ fontSize: '1.4rem' }}>Journaling Heatmap</h3>
+          <p className="glowing-numbers-text" style={{ fontSize: '0.8rem', marginBottom: '24px' }}>
+            Recent activity density over the last 4 weeks
+          </p>
+          <div className="wireframe-graph-container">
+            <div className="heatmap-grid nebula-heatmap">
+              {heatmapData.map((day) => (
+                <div
+                  key={day.date}
+                  className={`heatmap-cell nebula-level-${day.level}`}
+                  title={`${day.label}: ${day.count} ${day.count === 1 ? "entry" : "entries"}`}
+                />
+              ))}
+            </div>
+            <div className="heatmap-legend nebula-legend">
+              <span className="glass-shard-time">Zero Density</span>
+              <div className="heatmap-legend-scale">
+                {[0, 1, 2, 3, 4].map((level) => (
+                  <span key={level} className={`heatmap-cell nebula-level-${level}`} />
+                ))}
+              </div>
+              <span className="glass-shard-time">High Density</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
