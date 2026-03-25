@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Lora, Caveat } from "next/font/google";
+import { Lora, Caveat, Bebas_Neue, Great_Vibes, Poppins, Inter } from "next/font/google";
 import "./globals.css";
 
 const lora = Lora({
@@ -13,6 +13,30 @@ const caveat = Caveat({
   variable: "--font-caveat",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+});
+
+const bebasNeue = Bebas_Neue({
+  variable: "--font-bebas",
+  subsets: ["latin"],
+  weight: ["400"],
+});
+
+const greatVibes = Great_Vibes({
+  variable: "--font-great-vibes",
+  subsets: ["latin"],
+  weight: ["400"],
+});
+
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -30,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${lora.variable} ${caveat.variable} h-full`}
+      className={`${lora.variable} ${caveat.variable} ${bebasNeue.variable} ${greatVibes.variable} ${poppins.variable} ${inter.variable} h-full`}
     >
       <head>
         <meta name="theme-color" content="#3C1F0A" />

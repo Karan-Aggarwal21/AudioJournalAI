@@ -33,30 +33,43 @@ export default function JournalCard({ entry, onDelete }: JournalCardProps) {
         : "sentiment-neutral";
 
   return (
-    <article className="journal-card" id={`entry-${entry.id}`}>
-      <div className="journal-card-header">
-        <div className="journal-card-date">
-          <span className="journal-card-day">{formattedDate}</span>
-          <span className="journal-card-time">{formattedTime}</span>
+    <article className="glass-shard-card" id={`entry-${entry.id}`}>
+      <div className="glass-shard-header">
+        <div className="glass-shard-date">
+          <span className="glass-shard-day">{formattedDate}</span>
+          <span className="glass-shard-time">{formattedTime}</span>
         </div>
-        <div className="journal-card-badges">
-          <span className={`journal-card-sentiment ${sentimentClass}`}>
-            {entry.sentiment}
+        <div className="glass-shard-badges">
+          <span className="glass-prism-tag glass-prism-sentiment">
+            {entry.sentiment?.toUpperCase() || "NEUTRAL"}
           </span>
-          <span className="journal-card-emotion" title={entry.emotion}>
-            {getEmotionEmoji(entry.emotion)} {entry.emotion}
+          <span className="glass-prism-tag glass-prism-emotion" title={entry.emotion}>
+            <span className="jewel-emoji">{getEmotionEmoji(entry.emotion)}</span> {entry.emotion || "neutral"}
           </span>
+          {onDelete && (
+            <button
+              className="fractal-delete-btn"
+              onClick={() => onDelete(entry.id)}
+              aria-label="Delete entry"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <path d="M17 21v-8H7v8" />
+                <path d="M7 3v5h8" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="journal-card-rule" />
-
-      <p className="journal-card-text">{entry.text}</p>
+      <div className="swirling-light-text-container">
+        <p className="swirling-light-text">{entry.text}</p>
+      </div>
 
       {entry.keywords.length > 0 && (
-        <div className="journal-card-keywords">
+        <div className="crystallized-tags">
           {entry.keywords.map((kw) => (
-            <span key={kw} className="journal-card-keyword">
+            <span key={kw} className="crystallized-tag">
               {kw}
             </span>
           ))}
@@ -64,23 +77,13 @@ export default function JournalCard({ entry, onDelete }: JournalCardProps) {
       )}
 
       {entry.topics.length > 0 && (
-        <div className="journal-card-topics">
+        <div className="crystallized-tags topics">
           {entry.topics.map((t) => (
-            <span key={t} className="journal-card-topic">
+            <span key={t} className="crystallized-tag topic-tag">
               📌 {t}
             </span>
           ))}
         </div>
-      )}
-
-      {onDelete && (
-        <button
-          className="journal-card-delete"
-          onClick={() => onDelete(entry.id)}
-          aria-label="Delete entry"
-        >
-          ×
-        </button>
       )}
     </article>
   );
