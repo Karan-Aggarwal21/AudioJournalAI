@@ -254,8 +254,8 @@ html, body {
   scroll-snap-align: start;
   position: relative;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--leather-accent) transparent;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
   opacity: 0.76;
   transform: scale(0.988);
   transition:
@@ -269,12 +269,7 @@ html, body {
 }
 
 .book-page::-webkit-scrollbar {
-  width: 6px;
-}
-
-.book-page::-webkit-scrollbar-thumb {
-  background: var(--leather-accent);
-  border-radius: 3px;
+  display: none;
 }
 
 .book-page-inner {
