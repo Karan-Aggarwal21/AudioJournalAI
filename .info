@@ -1,0 +1,6 @@
+Run this command to download models (The models will be downloaded outside the project folder to avoid build and compile errors)
+- bash scripts/download-models.sh
+
+Pre-requisites:
+- sudo apt install curl wget   # Linux
+- brew install wget           # Mac

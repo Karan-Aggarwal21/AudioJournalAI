@@ -7,8 +7,9 @@
  */
 
 import { useRef, useState, useCallback, useEffect, type ReactNode } from "react";
+import Navbar from "@/components/Navbar";
 
-interface BookPage {
+export interface BookPage {
   id: string;
   label: string;
   content: ReactNode;
@@ -24,20 +25,66 @@ interface BookLayoutProps {
 
 export default function BookLayout({ pages, onNavigateRef }: BookLayoutProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const isProgrammaticScrollRef = useRef(false);
+  const targetScrollLeftRef = useRef(0);
   const [currentPage, setCurrentPage] = useState(0);
+
+  const animateScrollTo = useCallback((targetLeft: number, durationMs: number) => {
+    const node = scrollRef.current;
+    if (!node) return;
+
+    if (animationFrameRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    const startLeft = node.scrollLeft;
+    const delta = targetLeft - startLeft;
+    if (Math.abs(delta) < 1) {
+      node.scrollLeft = targetLeft;
+      isProgrammaticScrollRef.current = false;
+      return;
+    }
+
+    const startTime = performance.now();
+    const easeInOutCubic = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const frame = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / durationMs, 1);
+      const eased = easeInOutCubic(progress);
+      node.scrollLeft = startLeft + delta * eased;
+
+      if (progress < 1) {
+        animationFrameRef.current = window.requestAnimationFrame(frame);
+      } else {
+        node.scrollLeft = targetLeft;
+        isProgrammaticScrollRef.current = false;
+        animationFrameRef.current = null;
+      }
+    };
+
+    animationFrameRef.current = window.requestAnimationFrame(frame);
+  }, []);
 
   const scrollToPage = useCallback(
     (index: number) => {
       if (scrollRef.current) {
         const pageWidth = scrollRef.current.clientWidth;
-        scrollRef.current.scrollTo({
-          left: pageWidth * index,
-          behavior: "smooth",
-        });
-        setCurrentPage(index);
+        const boundedIndex = Math.max(0, Math.min(index, pages.length - 1));
+        const targetLeft = pageWidth * boundedIndex;
+        const deltaPages = Math.abs(targetLeft - scrollRef.current.scrollLeft) / pageWidth;
+        const durationMs = Math.min(780, Math.max(320, 260 + deltaPages * 190));
+
+        isProgrammaticScrollRef.current = true;
+        targetScrollLeftRef.current = targetLeft;
+        setCurrentPage(boundedIndex);
+        animateScrollTo(targetLeft, durationMs);
       }
     },
-    []
+    [animateScrollTo, pages.length]
   );
 
   useEffect(() => {
@@ -48,12 +95,28 @@ export default function BookLayout({ pages, onNavigateRef }: BookLayoutProps) {
     if (scrollRef.current) {
       const pageWidth = scrollRef.current.clientWidth;
       const scrollLeft = scrollRef.current.scrollLeft;
+
+      if (isProgrammaticScrollRef.current) {
+        if (Math.abs(scrollLeft - targetScrollLeftRef.current) <= 2) {
+          isProgrammaticScrollRef.current = false;
+        }
+        return;
+      }
+
       const page = Math.round(scrollLeft / pageWidth);
       if (page !== currentPage) {
         setCurrentPage(page);
       }
     }
   }, [currentPage]);
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   const goNext = useCallback(() => {
     if (currentPage < pages.length - 1) {
@@ -69,33 +132,11 @@ export default function BookLayout({ pages, onNavigateRef }: BookLayoutProps) {
 
   return (
     <div className="app-wrapper">
-      {/* Top transparent navigation */}
-      <nav className="top-nav" aria-label="Main navigation">
-        <div className="nav-logo">
-          <svg className="nav-logo-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
-          </svg>
-          <span className="nav-logo-text">MINDMIRROR</span>
-        </div>
-        <div className="nav-links">
-          {pages.map((page, i) => (
-            <button
-              key={page.id}
-              className={`nav-link ${i === currentPage ? "nav-link-active" : ""}`}
-              onClick={() => scrollToPage(i)}
-              aria-current={i === currentPage ? "page" : undefined}
-            >
-              {page.label}
-            </button>
-          ))}
-          <button className="nav-link">COMMUNITY</button>
-        </div>
-        <div className="nav-actions">
-          <svg className="nav-mic-icon" viewBox="0 0 24 24" fill="currentColor" onClick={() => scrollToPage(1)}>
-            <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
-          </svg>
-        </div>
-      </nav>
+      <Navbar
+        pages={pages}
+        currentPage={currentPage}
+        onNavigate={scrollToPage}
+      />
 
       {/* Scroll container with pages */}
       <div
@@ -103,10 +144,10 @@ export default function BookLayout({ pages, onNavigateRef }: BookLayoutProps) {
         ref={scrollRef}
         onScroll={handleScroll}
       >
-        {pages.map((page) => (
+        {pages.map((page, index) => (
           <section
             key={page.id}
-            className="book-page"
+            className={`book-page ${index === currentPage ? "book-page-active" : ""}`}
             id={`page-${page.id}`}
           >
             <div

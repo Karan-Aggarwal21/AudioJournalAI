@@ -35,6 +35,8 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+backup_models
+storage-history.txt
 # vercel
 .vercel
 

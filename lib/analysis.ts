@@ -1,19 +1,12 @@
 /**
- * Transformers.js NLP analysis engine.
- * Uses multilingual BERT for Sentiment and XLM-RoBERTa for Emotion.
- * Completely offline, running in browser via WebAssembly.
+ * Lazy NLP analysis engine.
+ *
+ * Models are loaded only when text analysis is requested.
+ * This module is resilient: if local model loading fails, it falls back
+ * to deterministic rule-based analysis so journaling keeps working offline.
  */
 
-import { pipeline, env, type PipelineType } from "@xenova/transformers";
 import { getEmotionScores } from "@/utils/emotionMapper";
-
-// Prefer local models for offline usage
-env.allowLocalModels = true;
-env.allowRemoteModels = false;
-env.localModelPath = "/models";
-
-const SENTIMENT_MODEL_ID = "Xenova/bert-base-multilingual-uncased-sentiment";
-const EMOTION_MODEL_ID = "Xenova/xlm-roberta-large-xnli";
 
 export type Sentiment = "positive" | "neutral" | "negative";
 export type Emotion =
@@ -37,133 +30,22 @@ export interface AnalysisResult {
   topics: string[];
 }
 
-// Pipelines
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let sentimentPipeline: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let emotionPipeline: any = null;
+const SENTIMENT_MODEL_ID = "Xenova/bert-base-multilingual-uncased-sentiment";
+const EMOTION_MODEL_ID = "Xenova/xlm-roberta-base";
 
-let isInitializing = false;
-let nlpUnavailable = false;
-let sentimentUnavailable = false;
-let emotionUnavailable = false;
+const CANDIDATE_EMOTIONS: Emotion[] = [
+  "joy",
+  "gratitude",
+  "calm",
+  "stress",
+  "anxiety",
+  "sadness",
+  "anger",
+  "fear",
+  "surprise",
+  "neutral",
+];
 
-const hasLocalFiles = async (modelId: string, files: string[]): Promise<boolean> => {
-  if (typeof window === "undefined") return true;
-  const base = `${env.localModelPath}/${modelId}`;
-  const checks = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const res = await fetch(`${base}/${file}`, { method: "HEAD" });
-        return res.ok;
-      } catch {
-        return false;
-      }
-    })
-  );
-  return checks.every(Boolean);
-};
-
-const hasAnyLocalFile = async (modelId: string, files: string[]): Promise<boolean> => {
-  if (typeof window === "undefined") return true;
-  const base = `${env.localModelPath}/${modelId}`;
-  const checks = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const res = await fetch(`${base}/${file}`, { method: "HEAD" });
-        return res.ok;
-      } catch {
-        return false;
-      }
-    })
-  );
-  return checks.some(Boolean);
-};
-
-/**
- * Initialize NLP models. Should be called when the app loads.
- */
-export async function initNLPModels(): Promise<void> {
-  if (nlpUnavailable) return;
-  if (sentimentPipeline && emotionPipeline) return;
-  if (isInitializing) {
-    // Wait for initialization if already in progress
-    while (isInitializing) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return;
-  }
-
-  isInitializing = true;
-  try {
-    console.info("[RunAnywhere:NLP] Initializing transformers.js pipelines...");
-
-    const [hasSentimentFiles, hasEmotionFiles] = await Promise.all([
-      sentimentUnavailable
-        ? Promise.resolve(false)
-        : Promise.all([
-            hasLocalFiles(SENTIMENT_MODEL_ID, [
-              "config.json",
-              "tokenizer.json",
-              "tokenizer_config.json",
-              "special_tokens_map.json",
-            ]),
-            hasAnyLocalFile(SENTIMENT_MODEL_ID, ["model.onnx", "model_quantized.onnx"]),
-          ]).then(([baseOk, hasModel]) => baseOk && hasModel),
-      emotionUnavailable
-        ? Promise.resolve(false)
-        : Promise.all([
-            hasLocalFiles(EMOTION_MODEL_ID, [
-              "config.json",
-              "tokenizer.json",
-              "tokenizer_config.json",
-              "special_tokens_map.json",
-            ]),
-            hasAnyLocalFile(EMOTION_MODEL_ID, ["model.onnx", "model_quantized.onnx"]),
-          ]).then(([baseOk, hasModel]) => baseOk && hasModel),
-    ]);
-
-    const sentimentPromise = hasSentimentFiles
-      ? pipeline("text-classification" as PipelineType, SENTIMENT_MODEL_ID)
-      : Promise.resolve(null);
-    const emotionPromise = hasEmotionFiles
-      ? pipeline("zero-shot-classification" as PipelineType, EMOTION_MODEL_ID)
-      : Promise.resolve(null);
-
-    const [sentimentResult, emotionResult] = await Promise.allSettled([
-      sentimentPromise,
-      emotionPromise,
-    ]);
-
-    if (sentimentResult.status === "fulfilled" && sentimentResult.value) {
-      sentimentPipeline = sentimentResult.value;
-    } else {
-      console.warn("[RunAnywhere:NLP] Sentiment model unavailable. Using fallback.");
-      sentimentUnavailable = true;
-    }
-
-    if (emotionResult.status === "fulfilled" && emotionResult.value) {
-      emotionPipeline = emotionResult.value;
-    } else {
-      console.warn("[RunAnywhere:NLP] Emotion model unavailable. Using fallback.");
-      emotionUnavailable = true;
-    }
-
-    if (sentimentPipeline || emotionPipeline) {
-      console.info("[RunAnywhere:NLP] NLP pipelines ready!");
-    } else {
-      console.warn("[RunAnywhere:NLP] No NLP models loaded. Falling back to rule-based analysis.");
-      nlpUnavailable = true;
-    }
-  } catch (err) {
-    console.error("[RunAnywhere:NLP] Failed to initialize NLP models:", err);
-    nlpUnavailable = true;
-  } finally {
-    isInitializing = false;
-  }
-}
-
-// Topic categories mapped simply via TF-IDF (keyword-based fallback since text-classification doesn't do topic extraction out-of-the-box without a zero-shot model)
 const TOPIC_MAP: Record<string, string[]> = {
   work: ["work", "job", "office", "meeting", "boss", "colleague", "project", "deadline", "career", "promotion"],
   health: ["health", "exercise", "gym", "doctor", "sick", "pain", "medication", "sleep", "diet", "wellness"],
@@ -174,118 +56,294 @@ const TOPIC_MAP: Record<string, string[]> = {
   selfcare: ["meditation", "therapy", "journal", "reflect", "growth", "self-care", "boundaries", "rest"],
 };
 
-// Map go_emotions 28 classes to our 10 broad categories
-const GO_EMOTIONS_MAP: Record<string, Emotion> = {
-  admiration: "joy", amusement: "joy", anger: "anger", annoyance: "anger", approval: "joy", 
-  caring: "joy", confusion: "surprise", curiosity: "surprise", desire: "joy", disappointment: "sadness", 
-  disapproval: "anger", disgust: "anger", embarrassment: "fear", excitement: "joy", fear: "fear", 
-  gratitude: "gratitude", grief: "sadness", joy: "joy", love: "joy", nervousness: "anxiety", 
-  optimism: "joy", pride: "joy", realization: "surprise", relief: "calm", remorse: "sadness", 
-  sadness: "sadness", surprise: "surprise", neutral: "neutral"
-};
+const STOP_WORDS = new Set([
+  "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+  "have", "has", "had", "do", "does", "did", "will", "would", "could",
+  "should", "may", "might", "shall", "can", "to", "of", "in", "for",
+  "on", "with", "at", "by", "from", "it", "this", "that", "and", "or",
+  "but", "not", "so", "if", "my", "me", "i", "we", "you", "he", "she",
+  "they", "them", "its", "our", "your", "just", "about", "very", "really",
+  "much", "also", "than", "then", "when", "what", "how", "all", "some",
+  "there", "here", "up", "out", "no", "yes", "like", "get", "got", "go",
+  "went", "going", "thing", "things", "way", "day", "today", "feel",
+  "felt", "feeling", "think", "thought", "know", "knew", "make", "made",
+]);
+
+// Lazy-loaded pipelines
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let classifier: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let emotionClassifier: any = null;
+
+let sentimentLoadTried = false;
+let emotionLoadTried = false;
+let emotionEmbeddingsInitialized = false;
+let emotionEmbeddingsInitPromise: Promise<void> | null = null;
+
+const EMBEDDING_EMOTION_LABELS: Emotion[] = [
+  "joy",
+  "sadness",
+  "anger",
+  "fear",
+  "anxiety",
+  "calm",
+  "stress",
+];
+
+const emotionEmbeddings: Partial<Record<Emotion, number[]>> = {};
+
+function clamp(num: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, num));
+}
 
 /**
- * Analyze journal text using local transformer models.
+ * Optional prewarm API; does not run unless explicitly called.
  */
+export async function initNLPModels(): Promise<void> {
+  await Promise.all([getSentimentClassifier(), getEmotionClassifier()]);
+}
+
+async function configureTransformersEnv(): Promise<
+  null | {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pipeline: any;
+  }
+> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    // Lazy import keeps heavy runtime out of app startup.
+    const mod = await import("@xenova/transformers");
+    mod.env.allowLocalModels = true;
+    mod.env.allowRemoteModels = false;
+    mod.env.localModelPath = "/models";
+    return { pipeline: mod.pipeline };
+  } catch (err) {
+    console.debug("[RunAnywhere:NLP] transformers import failed; using fallback.", err);
+    return null;
+  }
+}
+
+async function getSentimentClassifier() {
+  // Do NOT load on app start. Load only when needed.
+  if (classifier || sentimentLoadTried) return classifier;
+  sentimentLoadTried = true;
+
+  const tf = await configureTransformersEnv();
+  if (!tf) return null;
+
+  try {
+    classifier = await tf.pipeline("text-classification", SENTIMENT_MODEL_ID, {
+      quantized: true,
+      local_files_only: true,
+    });
+    console.info(`[RunAnywhere:NLP] Sentiment model loaded: ${SENTIMENT_MODEL_ID}`);
+    return classifier;
+  } catch (err) {
+    console.debug("[RunAnywhere:NLP] sentiment model unavailable; using fallback.", err);
+    classifier = null;
+    return null;
+  }
+}
+
+async function getEmotionClassifier() {
+  if (emotionClassifier || emotionLoadTried) return emotionClassifier;
+  emotionLoadTried = true;
+
+  const tf = await configureTransformersEnv();
+  if (!tf) return null;
+
+  try {
+    // Uses local folder Xenova/xlm-roberta-base with onnx/model_quantized.onnx
+    emotionClassifier = await tf.pipeline("feature-extraction", EMOTION_MODEL_ID, {
+      quantized: true,
+      local_files_only: true,
+    });
+    console.info(`[RunAnywhere:NLP] Emotion model loaded: ${EMOTION_MODEL_ID}`);
+
+    if (!emotionEmbeddingsInitialized && !emotionEmbeddingsInitPromise) {
+      emotionEmbeddingsInitPromise = initEmotionEmbeddings();
+    }
+
+    return emotionClassifier;
+  } catch (err) {
+    console.debug("[RunAnywhere:NLP] emotion model unavailable; using fallback.", err);
+    emotionClassifier = null;
+    return null;
+  }
+}
+
+async function getEmbedding(text: string): Promise<number[] | null> {
+  const model = await getEmotionClassifier();
+  if (!model) return null;
+
+  try {
+    const output = await model(text, {
+      pooling: "mean",
+      normalize: true,
+    });
+
+    if (!output || !output.data) return null;
+    return Array.from(output.data as ArrayLike<number>);
+  } catch (err) {
+    console.debug("[RunAnywhere:NLP] Embedding failed", err);
+    return null;
+  }
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length === 0 || b.length === 0 || a.length !== b.length) return -1;
+
+  let dot = 0;
+  let magASq = 0;
+  let magBSq = 0;
+
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i];
+    magASq += a[i] * a[i];
+    magBSq += b[i] * b[i];
+  }
+
+  const magA = Math.sqrt(magASq);
+  const magB = Math.sqrt(magBSq);
+  if (magA === 0 || magB === 0) return -1;
+
+  return dot / (magA * magB);
+}
+
+async function initEmotionEmbeddings(): Promise<void> {
+  for (const emotion of EMBEDDING_EMOTION_LABELS) {
+    const emb = await getEmbedding(emotion);
+    if (emb) {
+      emotionEmbeddings[emotion] = emb;
+    }
+  }
+
+  emotionEmbeddingsInitialized = true;
+}
+
+async function getEmotionFromEmbedding(text: string): Promise<{ emotion: Emotion; confidence: number }> {
+  const emb = await getEmbedding(text);
+  if (!emb) return { emotion: "neutral", confidence: 0 };
+
+  if (!emotionEmbeddingsInitialized && emotionEmbeddingsInitPromise) {
+    await emotionEmbeddingsInitPromise;
+  }
+  if (!emotionEmbeddingsInitialized && !emotionEmbeddingsInitPromise) {
+    emotionEmbeddingsInitPromise = initEmotionEmbeddings();
+    await emotionEmbeddingsInitPromise;
+  }
+
+  let bestEmotion: Emotion = "neutral";
+  let bestScore = -1;
+
+  for (const [emotion, refEmb] of Object.entries(emotionEmbeddings) as Array<[Emotion, number[] | undefined]>) {
+    if (!refEmb) continue;
+    const score = cosineSimilarity(emb, refEmb);
+    if (score > bestScore) {
+      bestScore = score;
+      bestEmotion = emotion;
+    }
+  }
+
+  if (bestScore < 0) return { emotion: "neutral", confidence: 0 };
+
+  return {
+    emotion: bestEmotion,
+    confidence: Math.min(bestScore, 0.95),
+  };
+}
+
+function getFallbackSentiment(text: string): { sentiment: Sentiment; score: number } {
+  const normalized = text.toLowerCase();
+  const positiveTerms = ["good", "happy", "great", "love", "relieved", "grateful", "calm", "better", "hopeful"];
+  const negativeTerms = ["bad", "sad", "angry", "anxious", "stress", "stressed", "afraid", "scared", "upset", "worried"];
+
+  let pos = 0;
+  let neg = 0;
+
+  for (const term of positiveTerms) {
+    if (normalized.includes(term)) pos += 1;
+  }
+  for (const term of negativeTerms) {
+    if (normalized.includes(term)) neg += 1;
+  }
+
+  const raw = pos - neg;
+  const score = clamp(raw / 4, -1, 1);
+
+  let sentiment: Sentiment = "neutral";
+  if (score > 0.2) sentiment = "positive";
+  if (score < -0.2) sentiment = "negative";
+
+  return { sentiment, score };
+}
+
+async function getSentiment(text: string): Promise<{ sentiment: Sentiment; score: number }> {
+  if (!text.trim()) return { sentiment: "neutral", score: 0 };
+
+  const loaded = await getSentimentClassifier();
+  if (!loaded) return getFallbackSentiment(text);
+
+  try {
+    const result = await loaded(text);
+    if (!Array.isArray(result) || result.length === 0) {
+      return getFallbackSentiment(text);
+    }
+
+    const label = String(result[0].label || "");
+    const confidence = typeof result[0].score === "number" ? result[0].score : 0;
+    const starMatch = label.match(/(\d)/);
+    const stars = starMatch ? Number(starMatch[1]) : 3;
+
+    let sentiment: Sentiment = "neutral";
+    if (stars <= 2) sentiment = "negative";
+    else if (stars >= 4) sentiment = "positive";
+
+    const baseScore = (stars - 3) / 2;
+    const score = clamp(baseScore * (confidence || 1), -1, 1);
+
+    if (confidence < 0.55) {
+      return { sentiment: "neutral", score: 0 };
+    }
+
+    return { sentiment, score };
+  } catch (err) {
+    console.debug("[RunAnywhere:NLP] sentiment inference failed; using fallback.", err);
+    return getFallbackSentiment(text);
+  }
+}
+
+async function getEmotion(text: string): Promise<{ emotion: Emotion; confidence: number }> {
+  if (!text.trim()) return { emotion: "neutral", confidence: 0 };
+
+  const embeddingResult = await getEmotionFromEmbedding(text);
+  if (embeddingResult.confidence > 0) {
+    return embeddingResult;
+  }
+
+  const scores = getEmotionScores(text);
+  if (scores.length === 0) return { emotion: "neutral", confidence: 0 };
+
+  const top = scores.find((s) => CANDIDATE_EMOTIONS.includes(s.emotion)) ?? scores[0];
+  return { emotion: top.emotion, confidence: clamp(top.score, 0, 0.85) };
+}
+
 export async function analyzeText(text: string): Promise<AnalysisResult> {
-  const words = text.toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/);
+  const normalized = text.toLowerCase();
+  const words = normalized.replace(/[^\w\s]/g, " ").split(/\s+/).filter(Boolean);
   const wordSet = new Set(words);
 
-  // Initialize models if not already loaded (lazy load fallback)
-  if (!sentimentPipeline || !emotionPipeline) {
-    await initNLPModels();
-  }
-
-  // --- Sentiment Analysis (Multilingual BERT) ---
-  let sentiment: Sentiment = "neutral";
-  let sentimentScore = 0;
-  
-  if (text.trim().length > 0 && sentimentPipeline) {
-      try {
-        const sentResult = await sentimentPipeline(text);
-        if (sentResult && sentResult.length > 0) {
-          const label = String(sentResult[0].label || "");
-          const score = typeof sentResult[0].score === "number" ? sentResult[0].score : 0;
-          const starMatch = label.match(/(\d)/);
-          const stars = starMatch ? Number(starMatch[1]) : 3;
-
-          if (stars <= 2) {
-            sentiment = "negative";
-          } else if (stars === 3) {
-            sentiment = "neutral";
-          } else {
-            sentiment = "positive";
-          }
-
-          // Map 1-5 stars to -1..1 with confidence weighting
-          const baseScore = (stars - 3) / 2;
-          sentimentScore = Math.max(-1, Math.min(1, baseScore * (score || 1)));
-
-          // If confidence is low, fall back to neutral
-          if (score < 0.55) {
-            sentiment = "neutral";
-            sentimentScore = 0;
-          }
-        }
-      } catch (err) {
-          console.warn("Sentiment analysis failed, falling back to neutral", err);
-      }
-  } else if (text.trim().length > 0) {
-    const normalized = text.toLowerCase();
-    const negationPatterns = ["not ", "never ", "no "];
-    const positiveTerms = ["good", "happy", "fine", "great", "ok", "okay", "well", "better", "love"];
-
-    const hasNegatedPositive = positiveTerms.some((term) =>
-      negationPatterns.some((neg) => normalized.includes(`${neg}${term}`))
-    );
-
-    if (hasNegatedPositive) {
-      sentiment = "negative";
-      sentimentScore = -0.5;
-    }
-  }
-
-  // --- Emotion Detection (XLM-RoBERTa Zero-Shot) ---
-  let emotion: Emotion = "neutral";
-  let emotionConfidence = 0;
-
-  if (text.trim().length > 0 && emotionPipeline) {
-      try {
-        const candidateLabels = ["joy", "gratitude", "calm", "stress", "anxiety", "sadness", "anger", "fear", "surprise", "neutral"];
-        const emResult = await emotionPipeline(text, candidateLabels);
-        
-        if (emResult && emResult.labels && emResult.labels.length > 0) {
-            emotion = emResult.labels[0] as Emotion;
-            emotionConfidence = emResult.scores[0];
-        }
-      } catch (err) {
-          console.warn("Emotion analysis failed, falling back to neutral", err);
-      }
-  } else if (text.trim().length > 0) {
-    const scores = getEmotionScores(text);
-    if (scores.length > 0) {
-      emotion = scores[0].emotion;
-      emotionConfidence = Math.min(0.75, scores[0].score);
-    }
-  }
-
-  // --- Keyword Extraction (simple TF-based) ---
-  const stopWords = new Set([
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "shall", "can", "to", "of", "in", "for",
-    "on", "with", "at", "by", "from", "it", "this", "that", "and", "or",
-    "but", "not", "so", "if", "my", "me", "i", "we", "you", "he", "she",
-    "they", "them", "its", "our", "your", "just", "about", "very", "really",
-    "much", "also", "than", "then", "when", "what", "how", "all", "some",
-    "there", "here", "up", "out", "no", "yes", "like", "get", "got", "go",
-    "went", "going", "thing", "things", "way", "day", "today", "feel",
-    "felt", "feeling", "think", "thought", "know", "knew", "make", "made",
+  const [{ sentiment, score: sentimentScore }, { emotion, confidence: emotionConfidence }] = await Promise.all([
+    getSentiment(text),
+    getEmotion(text),
   ]);
 
   const wordFreq: Record<string, number> = {};
   for (const word of words) {
-    if (word.length > 2 && !stopWords.has(word)) {
+    if (word.length > 2 && !STOP_WORDS.has(word)) {
       wordFreq[word] = (wordFreq[word] || 0) + 1;
     }
   }
@@ -295,10 +353,9 @@ export async function analyzeText(text: string): Promise<AnalysisResult> {
     .slice(0, 5)
     .map(([word]) => word);
 
-  // --- Topic Detection ---
   const topicScores: Record<string, number> = {};
   for (const [topic, topicWords] of Object.entries(TOPIC_MAP)) {
-    const matches = topicWords.filter((tw) => wordSet.has(tw));
+    const matches = topicWords.filter((topicWord) => wordSet.has(topicWord));
     if (matches.length > 0) {
       topicScores[topic] = matches.length;
     }

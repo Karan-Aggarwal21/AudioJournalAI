@@ -14,7 +14,7 @@ interface RunAnywhereState {
   error: string | null;
 }
 
-let state: RunAnywhereState = {
+const state: RunAnywhereState = {
   sdk: "idle",
   stt: "idle",
   vad: "idle",
@@ -23,6 +23,26 @@ let state: RunAnywhereState = {
 };
 
 let initPromise: Promise<void> | null = null;
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object") {
+    const data = err as Record<string, unknown>;
+    const message = data.message;
+    if (typeof message === "string" && message.trim().length > 0) return message;
+    const reason = data.reason;
+    if (typeof reason === "string" && reason.trim().length > 0) return reason;
+    const error = data.error;
+    if (typeof error === "string" && error.trim().length > 0) return error;
+    try {
+      return JSON.stringify(data);
+    } catch {
+      return String(err);
+    }
+  }
+  return String(err);
+}
 
 export function getRunAnywhereState(): RunAnywhereState {
   return { ...state };
@@ -174,7 +194,7 @@ export async function initRunAnywhere(): Promise<void> {
       state.sdk = "ready";
     } catch (err) {
       state.sdk = "error";
-      state.error = err instanceof Error ? err.message : "SDK init failed";
+      state.error = `SDK init failed: ${getErrorMessage(err)}`;
       throw err;
     }
   })();
@@ -183,7 +203,7 @@ export async function initRunAnywhere(): Promise<void> {
 }
 
 /**
- * Initialize STT (Whisper Tiny). Requires SDK to be ready.
+ * Initialize STT (Whisper Base only). Requires SDK to be ready.
  */
 export async function initSTTModel(): Promise<void> {
   if (state.stt === "ready" || state.stt === "loading") return;
@@ -201,75 +221,61 @@ export async function initSTTModel(): Promise<void> {
       try {
         const res = await fetch(`${origin}${path}`, { method: "HEAD" });
         return res.ok;
-      } catch (err) {
-        console.warn("[RunAnywhere:STT] File check failed:", path, err);
+      } catch {
         return false;
       }
     };
 
-    const modelCandidates = [
-      {
-        id: "whisper-small",
-        encoder: "/models/whisper-small-encoder.onnx",
-        decoder: "/models/whisper-small-decoder.onnx",
-        tokens: "/models/whisper-small-tokens.txt",
-      },
-      {
-        id: "whisper-base",
-        encoder: "/models/whisper-base-encoder.onnx",
-        decoder: "/models/whisper-base-decoder.onnx",
-        tokens: "/models/whisper-base-tokens.txt",
-      },
-      {
-        id: "whisper-tiny",
-        encoder: "/models/whisper-tiny-encoder.onnx",
-        decoder: "/models/whisper-tiny-decoder.onnx",
-        tokens: "/models/whisper-tiny-tokens.txt",
-      },
-    ];
+    const model = {
+      id: "whisper-base-en-int8",
+      encoder: "/models/base.en-encoder.int8.onnx",
+      decoder: "/models/base.en-decoder.int8.onnx",
+      tokens: "/models/base.en-tokens.txt",
+    };
 
-    let lastError: Error | null = null;
-    for (const model of modelCandidates) {
-      try {
-        const [hasEncoder, hasDecoder, hasTokens] = await Promise.all([
-          isFileAvailable(model.encoder),
-          isFileAvailable(model.decoder),
-          isFileAvailable(model.tokens),
-        ]);
+    const [hasEncoder, hasDecoder, hasTokens] = await Promise.all([
+      isFileAvailable(model.encoder),
+      isFileAvailable(model.decoder),
+      isFileAvailable(model.tokens),
+    ]);
 
-        if (!hasEncoder || !hasDecoder || !hasTokens) {
-          console.warn(`[RunAnywhere:STT] Missing files for ${model.id}, skipping.`);
-          continue;
-        }
-
-        await bridge.downloadAndWrite(model.encoder, model.encoder);
-        await bridge.downloadAndWrite(model.decoder, model.decoder);
-        await bridge.downloadAndWrite(model.tokens, model.tokens);
-
-        await STT.loadModel({
-          modelId: model.id,
-          type: STTModelType.Whisper,
-          modelFiles: {
-            encoder: model.encoder,
-            decoder: model.decoder,
-            tokens: model.tokens,
-          },
-          sampleRate: 16000,
-        });
-
-        state.stt = "ready";
-        return;
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        console.warn(`[RunAnywhere:STT] Failed to load ${model.id}, trying fallback...`, err);
-      }
+    if (!hasEncoder || !hasDecoder || !hasTokens) {
+      const missing: string[] = [];
+      if (!hasEncoder) missing.push(model.encoder);
+      if (!hasDecoder) missing.push(model.decoder);
+      if (!hasTokens) missing.push(model.tokens);
+      throw new Error(`Whisper Base model files are missing/inaccessible: ${missing.join(", ")}`);
     }
 
-    throw lastError || new Error("STT init failed");
+    try {
+      await bridge.downloadAndWrite(model.encoder, model.encoder);
+      await bridge.downloadAndWrite(model.decoder, model.decoder);
+      await bridge.downloadAndWrite(model.tokens, model.tokens);
+    } catch (err) {
+      throw new Error(`Failed to stage Whisper Base files in WASM FS: ${getErrorMessage(err)}`);
+    }
+
+    try {
+      await STT.loadModel({
+        modelId: model.id,
+        type: STTModelType.Whisper,
+        modelFiles: {
+          encoder: model.encoder,
+          decoder: model.decoder,
+          tokens: model.tokens,
+        },
+        sampleRate: 16000,
+      });
+    } catch (err) {
+      throw new Error(`Whisper Base STT.loadModel failed: ${getErrorMessage(err)}`);
+    }
+
+    state.stt = "ready";
+    return;
 
   } catch (err) {
     state.stt = "error";
-    state.error = err instanceof Error ? err.message : "STT init failed";
+    state.error = `STT init failed: ${getErrorMessage(err)}`;
     throw err;
   }
 }
@@ -288,19 +294,27 @@ export async function initVADModel(): Promise<void> {
     // Download files into Sherpa-ONNX WASM virtual filesystem
     const bridge = SherpaONNXBridge.shared;
     await bridge.ensureLoaded();
-    await bridge.downloadAndWrite("/models/silero_vad.onnx", "/models/silero_vad.onnx");
+    try {
+      await bridge.downloadAndWrite("/models/silero_vad.onnx", "/models/silero_vad.onnx");
+    } catch (err) {
+      throw new Error(`Failed to stage Silero VAD model in WASM FS: ${getErrorMessage(err)}`);
+    }
 
-    await VAD.loadModel({
-      modelPath: "/models/silero_vad.onnx",
-      threshold: 0.8,
-      minSpeechDuration: 0.5,
-      minSilenceDuration: 0.8,
-    });
+    try {
+      await VAD.loadModel({
+        modelPath: "/models/silero_vad.onnx",
+        threshold: 0.8,
+        minSpeechDuration: 0.5,
+        minSilenceDuration: 0.8,
+      });
+    } catch (err) {
+      throw new Error(`VAD.loadModel failed: ${getErrorMessage(err)}`);
+    }
 
     state.vad = "ready";
   } catch (err) {
     state.vad = "error";
-    state.error = err instanceof Error ? err.message : "VAD init failed";
+    state.error = `VAD init failed: ${getErrorMessage(err)}`;
     throw err;
   }
 }
@@ -326,7 +340,7 @@ export async function initTTSModel(): Promise<void> {
     state.tts = "ready";
   } catch (err) {
     state.tts = "error";
-    state.error = err instanceof Error ? err.message : "TTS init failed";
+    state.error = `TTS init failed: ${getErrorMessage(err)}`;
     throw err;
   }
 }

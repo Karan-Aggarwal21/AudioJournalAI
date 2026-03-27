@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated assets and external agent docs/examples are not app source.
+    "models/**",
+    "sherpa-onnx-whisper-base.en/**",
+    ".agents/**",
+    "scripts/**",
   ]),
 ]);
 

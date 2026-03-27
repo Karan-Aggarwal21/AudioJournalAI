@@ -1,6 +1,6 @@
 /**
  * Speech-to-Text wrapper.
- * Uses RunAnywhere ONNX backend with Whisper Tiny model.
+ * Uses RunAnywhere ONNX backend with Whisper Base (quantized) and Tiny fallback.
  * Must be initialized via runanywhere.ts first.
  */
 

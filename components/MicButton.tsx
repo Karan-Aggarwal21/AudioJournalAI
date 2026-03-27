@@ -32,6 +32,7 @@ export default function MicButton({ onNewEntry, onUpdateEntry, modelsReady }: Mi
   const activeEntryIdRef = useRef<string | null>(null);
   const accumulatedTextRef = useRef<string>("");
   const isCreatingRef = useRef(false);
+  const sessionIdRef = useRef(0);
 
   if (modelsReady && state === "loadingModels") {
     setState("idle");
@@ -43,6 +44,7 @@ export default function MicButton({ onNewEntry, onUpdateEntry, modelsReady }: Mi
     if (isListeningActive()) {
       setState("processing");
       await stopListening();
+      sessionIdRef.current += 1;
       activeEntryIdRef.current = null;
       accumulatedTextRef.current = "";
       isCreatingRef.current = false;
@@ -52,47 +54,72 @@ export default function MicButton({ onNewEntry, onUpdateEntry, modelsReady }: Mi
     }
 
     try {
+      sessionIdRef.current += 1;
+      const activeSessionId = sessionIdRef.current;
       activeEntryIdRef.current = null;
       accumulatedTextRef.current = "";
       setTranscribedText("");
       
       await startListening({
         onTranscription: async (text: string) => {
-          // Ignore very short transcribed noises like "[music]" or "[blank]"
-          if (text.length < 3 || text.startsWith("[")) return;
+          if (activeSessionId !== sessionIdRef.current) return;
 
-          accumulatedTextRef.current += (accumulatedTextRef.current ? " " : "") + text;
+          const normalizedText = text.replace(/\s+/g, " ").trim();
+
+          // Ignore very short transcribed noises like "[music]" or "[blank]"
+          if (normalizedText.length < 3 || normalizedText.startsWith("[")) return;
+
+          accumulatedTextRef.current += (accumulatedTextRef.current ? " " : "") + normalizedText;
           setTranscribedText(accumulatedTextRef.current);
 
-          const analysis = await analyzeText(accumulatedTextRef.current);
+          let analysis;
+          try {
+            analysis = await analyzeText(accumulatedTextRef.current);
+          } catch (err) {
+            console.error("[MicButton] analyzeText failed:", err);
+            return;
+          }
           
           if (activeEntryIdRef.current) {
-            const entry = await updateEntry(activeEntryIdRef.current, {
-              text: accumulatedTextRef.current,
-              sentiment: analysis.sentiment,
-              sentimentScore: analysis.sentimentScore,
-              emotion: analysis.emotion,
-              emotionConfidence: analysis.emotionConfidence,
-              keywords: analysis.keywords,
-              topics: analysis.topics,
-            });
-            onUpdateEntry(entry);
+            try {
+              const entry = await updateEntry(activeEntryIdRef.current, {
+                text: accumulatedTextRef.current,
+                sentiment: analysis.sentiment,
+                sentimentScore: analysis.sentimentScore,
+                emotion: analysis.emotion,
+                emotionConfidence: analysis.emotionConfidence,
+                keywords: analysis.keywords,
+                topics: analysis.topics,
+              });
+              if (activeSessionId === sessionIdRef.current) {
+                onUpdateEntry(entry);
+              }
+            } catch (err) {
+              console.error("[MicButton] updateEntry failed:", err);
+            }
           } else {
             if (isCreatingRef.current) return;
             isCreatingRef.current = true;
-            const entry = await saveEntry({
-              text: accumulatedTextRef.current,
-              timestamp: Date.now(),
-              sentiment: analysis.sentiment,
-              sentimentScore: analysis.sentimentScore,
-              emotion: analysis.emotion,
-              emotionConfidence: analysis.emotionConfidence,
-              keywords: analysis.keywords,
-              topics: analysis.topics,
-            });
-            activeEntryIdRef.current = entry.id;
-            onNewEntry(entry);
-            isCreatingRef.current = false;
+            try {
+              const entry = await saveEntry({
+                text: accumulatedTextRef.current,
+                timestamp: Date.now(),
+                sentiment: analysis.sentiment,
+                sentimentScore: analysis.sentimentScore,
+                emotion: analysis.emotion,
+                emotionConfidence: analysis.emotionConfidence,
+                keywords: analysis.keywords,
+                topics: analysis.topics,
+              });
+              if (activeSessionId === sessionIdRef.current) {
+                activeEntryIdRef.current = entry.id;
+                onNewEntry(entry);
+              }
+            } catch (err) {
+              console.error("[MicButton] saveEntry failed:", err);
+            } finally {
+              isCreatingRef.current = false;
+            }
           }
         },
         onStateChange: (vadState) => {

@@ -30,6 +30,14 @@ interface GraphProps {
   readonly entries: JournalEntry[];
 }
 
+interface CrystalBarProps {
+  fill?: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}
+
 // Custom tooltip for the mood chart
 function MoodTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; payload: { emotion: string } }>; label?: string }) {
   if (active && payload && payload.length) {
@@ -77,8 +85,7 @@ function RadarTooltip({ active, payload }: { active?: boolean; payload?: Array<{
 }
 
 // Custom Crystal Bar Shape
-const CrystalBar = (props: any) => {
-  const { fill, x, y, width, height } = props;
+const CrystalBar = ({ fill = "#ffd299", x = 0, y = 0, width = 0, height = 0 }: CrystalBarProps) => {
   
   // Custom SVG path for a 3D geometric crystal pillar
   return (
